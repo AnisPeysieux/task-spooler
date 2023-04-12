@@ -109,6 +109,8 @@ struct CommandLine {
     int num_slots; /* Slots for the job to use. Default 1 */
     int require_elevel;  /* whether requires error level of dependencies or not */
     char *logfile;
+    char *outfile;
+    char *errfile;
 };
 
 enum ProcessType {

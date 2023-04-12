@@ -64,6 +64,8 @@ static void default_command_line() {
     command_line.num_slots = 1;
     command_line.require_elevel = 0;
     command_line.logfile = 0;
+    command_line.outfile = 0;
+    command_line.errfile = 0;
 }
 
 void get_command(int index, int argc, char **argv) {
@@ -114,6 +116,8 @@ static struct option longOptions[] = {
         {"getenv",        required_argument, NULL, 0},
         {"setenv",        required_argument, NULL, 0},
         {"unsetenv",      required_argument, NULL, 0},
+        {"outfile",       required_argument, NULL, 0},
+        {"errfile",       required_argument, NULL, 0},
         {NULL,            0,                 NULL, 0}
 };
 
@@ -146,6 +150,10 @@ void parse_opts(int argc, char **argv) {
                 } else if (strcmp(longOptions[optionIdx].name, "unsetenv") == 0) {
                     command_line.request = c_UNSET_ENV;
                     command_line.label = optarg;  /* reuse this var */
+                } else if (strcmp(longOptions[optionIdx].name, "outfile") == 0) {
+                    command_line.outfile = optarg;  /* reuse this var */
+                } else if (strcmp(longOptions[optionIdx].name, "errfile") == 0) {
+                    command_line.errfile = optarg;  /* reuse this var */
                 } else
                     error("Wrong option %s.", longOptions[optionIdx].name);
                 break;

@@ -138,31 +138,45 @@ static void run_gzip(int fd_out, int fd_in) {
 
 static void run_child(int fd_send_filename, const char* tmpdir) {
     char *outfname;
-    char errfname[sizeof outfname + 2]; /* .e */
+    char *errfname;
     int namesize;
     int outfd;
     int err;
     struct timeval starttv;
 
-    if (command_line.logfile) {
+    if (command_line.outfile) {
+        outfname = malloc(strlen(command_line.outfile) + 1);
+        sprintf(outfname, "%s", command_line.outfile);
+    } else if (command_line.logfile) {
         outfname = malloc(1 + strlen(command_line.logfile) + strlen(".XXXXXX") + 1);
         sprintf(outfname, "/%s.XXXXXX", command_line.logfile);
     } else
         outfname = "/ts-out.XXXXXX";
 
-    if (command_line.store_output) {
-        /* Prepare path */
-        int lname;
-        char *outfname_full;
-
+    /* Prepare path */
+    int lname;
+    char *outfname_full;
+    if (command_line.outfile) {
+        lname = strlen(outfname) + 1 /* \0 */;
+        outfname_full = (char *) malloc(lname);
+        strcpy(outfname_full, outfname);
+    } else {
         if (tmpdir == NULL)
             tmpdir = "/tmp";
         lname = strlen(tmpdir) + strlen(outfname) + 1 /* \0 */;
-
         outfname_full = (char *) malloc(lname);
         strcpy(outfname_full, tmpdir);
         strcat(outfname_full, outfname);
+    }
 
+    if (command_line.errfile) {
+        errfname = malloc(strlen(command_line.errfile) + 1);
+        sprintf(errfname, "%s", command_line.errfile);
+    } else {
+        errfname = malloc(strlen(outfname_full) + 2 + 1);
+    }
+
+    if (command_line.store_output) {
         if (command_line.gzip) {
             int p[2];
             /* We assume that all handles are closed*/
@@ -172,17 +186,23 @@ static void run_child(int fd_send_filename, const char* tmpdir) {
             /* gzip output goes to the filename */
             /* This will be the handle other than 0,1,2 */
             /* mkstemp doesn't admit adding ".gz" to the pattern */
-            outfd = mkstemp(outfname_full); /* stdout */
+            if (command_line.outfile) {
+                outfd = open(outfname_full, O_CREAT | O_WRONLY | O_TRUNC, 0600);
+            } else {
+                outfd = mkstemp(outfname_full); /* stdout */
+            }
             assert(outfd != -1);
 
             /* Program stdout and stderr */
             /* which go to pipe write handle */
             err = dup2(p[1], 1);
             assert(err != -1);
-            if (command_line.stderr_apart) {
+            if (command_line.stderr_apart || command_line.errfile) {
                 int errfd;
-                strncpy(errfname, outfname_full, sizeof errfname);
-                strncat(errfname, ".e", 2 + 1);
+                if (!command_line.errfile) {
+                    strncpy(errfname, outfname_full, strlen(outfname_full));
+                    strncat(errfname, ".e", 2 + 1);
+                }
                 errfd = open(errfname, O_CREAT | O_WRONLY | O_TRUNC, 0600);
                 assert(err == 0);
                 err = dup2(errfd, 2);
@@ -202,12 +222,18 @@ static void run_child(int fd_send_filename, const char* tmpdir) {
             run_gzip(outfd, p[0]);
         } else {
             /* Prepare the filename */
-            outfd = mkstemp(outfname_full); /* stdout */
+            if (command_line.outfile) {
+                outfd = open(outfname_full, O_CREAT | O_WRONLY | O_TRUNC, 0600);
+            } else {
+                outfd = mkstemp(outfname_full); /* stdout */
+            }
             dup2(outfd, 1); /* stdout */
-            if (command_line.stderr_apart) {
+            if (command_line.stderr_apart || command_line.errfile) {
                 int errfd;
-                strncpy(errfname, outfname_full, sizeof errfname);
-                strncat(errfname, ".e", 2 + 1);
+                if (!command_line.errfile) {
+                    strncpy(errfname, outfname_full, strlen(outfname_full));
+                    strncat(errfname, ".e", 2 + 1);
+                }
                 errfd = open(errfname, O_CREAT | O_WRONLY | O_TRUNC, 0600);
                 dup2(errfd, 2);
                 close(errfd);
